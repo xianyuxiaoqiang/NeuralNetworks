@@ -148,102 +148,7 @@ void freeInputData(input_data_t *indata_p)
 		indata_p->row_num = 0;
 	}
 }
-/* input_data_recognition_t initInputDataRecognition_toInt(char * fname)  // this function get 64 bit to 2 int. only get 2 input number
-{
-	input_data_recognition_t data;
-	FILE *inFile = NULL;
-	char buffer[1025];
-	size_t size = 0;
-	unsigned int i;
-	unsigned int j;
-	unsigned int byteCount = 0;
-	unsigned int intCount = 0;
-	int tmpdata = 0;
-	char *tmp_p;
 
-	inFile = fopen(fname, "r");
-	if( inFile == NULL )
-	{
-        error_output("Fail to open file.");
-		goto ERROR_END;
-	}
-    size = fread( buffer, 1, 1024, inFile );
-	// todo : input more than 1024
-	tmp_p = &buffer;
-	for( i = 0; i < size; i++ )
-	{
-		if( buffer[i] == '\n' )
-		{
-			if( 16 != (&buffer[i] - tmp_p) )     // todo : more size of input.   Current is only 8*8
-			{
-				error_output("Invalid line length.");
-				goto ERROR_END;
-			}
-			// todo : more codeset. Current is sjis. 
-			// 0x81A0 : □(0)
-			// 0x81A1 : ■(1)
-			for( j=0; j<16; j+=2 )
-			{
-				if( tmp_p[j] == (char)0x81 && tmp_p[j+1] == (char)0xA0 )
-				{
-					((char *)&tmpdata)[byteCount] &= ( 0xFF << (8 - j/2) ) | (0x7F >> j/2);
-				}
-				else if( tmp_p[j] == (char)0x81 && tmp_p[j+1] == (char)0xA1 )
-				{
-					if( j == 0 )
-					{
-						((char *)&tmpdata)[byteCount] |= 0x80;
-					}
-					else
-					{
-						((char *)&tmpdata)[byteCount] |= 0x40 >> (j/2-1);
-					}
-				}
-				else
-				{
-					error_output("Invalid input data.");
-					goto ERROR_END;
-				}
-			}
-			byteCount++;
-			if( byteCount >= 4 )
-			{
-				if( intCount == 0 )
-				{
-					data.first = tmpdata;
-					tmpdata = 0;
-				}
-				else
-				{
-					data.second = tmpdata;
-					tmpdata = 0;
-				}
-				intCount++;
-				byteCount = 0;
-			}
-			tmp_p = &buffer[i] + 1;
-		}
-	}
-
-
-	// success
-	if( inFile != NULL )
-	{
-		fclose(inFile);
-		inFile = NULL;
-	}
-	return data;
-
-ERROR_END:
-	if( inFile != NULL )
-	{
-		fclose(inFile);
-		inFile = NULL;
-	}
-	data.first = 0;
-	data.second = 0;
-	return data;
-} */
 input_data_recognition_t initInputDataRecognition(char * fname)
 {
 	input_data_recognition_t data;
@@ -303,7 +208,6 @@ input_data_recognition_t initInputDataRecognition(char * fname)
 			tmp_p = &buffer[i] + 1;
 		}
 	}
-
 	// success
 	if( inFile != NULL )
 	{
@@ -321,3 +225,168 @@ ERROR_END:
 	memset( data.data, 0, sizeof(data.data));
 	return data;
 }
+
+#define PNG_BYTES_TO_CHECK 4
+input_data_recognition_t initInputDataRecPNG(char * fname)
+{
+	input_data_recognition_t data;
+	FILE *fp;
+    png_structp png_ptr;
+    png_infop info_ptr;
+    png_bytep* row_pointers;
+    char buf[PNG_BYTES_TO_CHECK];
+    int w, h, x, y, temp, color_type;
+	int data_row_index,data_col_index;
+	png_byte red,green,blue,alpha;
+
+	data_row_index = data_col_index = 0;
+	memset( &data, 0, sizeof(data) );
+	if ((fp = fopen(fname, "rb")) == NULL)
+	{
+		error_output("initInputDataRecPNG: erro in fopen");
+		return data;
+	}
+
+	/* Create and initialize the png_struct
+	*/
+	png_ptr = png_create_read_struct( PNG_LIBPNG_VER_STRING, 0, 0, 0 );
+
+	if (png_ptr == NULL)
+	{
+		error_output("initInputDataRecPNG: erro in png_create_read_struct");
+		fclose(fp);
+		return data;
+	}
+
+	/* Allocate/initialize the memory for image information.  REQUIRED. */
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL)
+	{
+		error_output("initInputDataRecPNG: erro in png_create_info_struct");
+		fclose(fp);
+		png_destroy_read_struct(&png_ptr, NULL, NULL);
+		return data;
+	}
+
+    //setjmp( png_jmpbuf(png_ptr) );
+    temp = fread( buf, 1, PNG_BYTES_TO_CHECK, fp );
+    if( temp < PNG_BYTES_TO_CHECK ) {
+		error_output("initInputDataRecPNG: erro in fread");
+        fclose(fp);
+        png_destroy_read_struct( &png_ptr, &info_ptr, 0);
+        return data;
+    }  
+    temp = png_sig_cmp( (png_bytep)buf, (png_size_t)0, PNG_BYTES_TO_CHECK ); 
+    if( temp != 0 ) {
+		error_output("initInputDataRecPNG: erro in png_sig_cmp");
+        fclose(fp);
+        png_destroy_read_struct( &png_ptr, &info_ptr, 0);
+        return data;
+    }  
+          
+    rewind( fp );
+    png_init_io( png_ptr, fp );
+    png_read_png( png_ptr, info_ptr, PNG_TRANSFORM_EXPAND, 0 );
+    color_type = png_get_color_type( png_ptr, info_ptr );
+    w = png_get_image_width( png_ptr, info_ptr );
+    h = png_get_image_height( png_ptr, info_ptr );
+    row_pointers = png_get_rows( png_ptr, info_ptr );
+    switch( color_type ) {
+    case PNG_COLOR_TYPE_RGB_ALPHA:
+        for( y=0; y<h; ++y ) {
+            for( x=0; x<w*4; ) {
+                red = row_pointers[y][x++];
+                green = row_pointers[y][x++];
+                blue = row_pointers[y][x++];
+                alpha = row_pointers[y][x++];
+				RGBtoBool(w,h,x/4-1,y,red,green,blue,&data);
+            }
+        }
+        break;
+
+    case PNG_COLOR_TYPE_RGB:
+        for( y=0; y<h; ++y ) {
+            for( x=0; x<w*3; ) {
+                red = row_pointers[y][x++];
+                green = row_pointers[y][x++];
+                blue = row_pointers[y][x++];
+				RGBtoBool(w,h,x/3-1,y,red,green,blue,&data);
+            }
+        }
+        break;
+    default:
+        fclose(fp);
+        png_destroy_read_struct( &png_ptr, &info_ptr, 0);  
+        return data;
+    }  
+    png_destroy_read_struct( &png_ptr, &info_ptr, 0);  
+	if( DEBUG_MSG )
+	{
+		input_data_recognition_to_txt( &data, fname );
+	}
+    return data;
+}
+
+int RGBtoBool( int width, int hight, int x, int y, png_byte red, png_byte green, png_byte blue, input_data_recognition_t *data_p )
+{
+	int row_data, col_data;
+	int result;
+	double *tmp;
+	row_data = y * DATA_INPUT_ROW_NUM / hight;
+	if( row_data >= DATA_INPUT_ROW_NUM )
+	{
+		row_data = DATA_INPUT_ROW_NUM - 1;
+	}
+	col_data = x * DATA_INPUT_COL_NUM / width;
+	if( col_data >= DATA_INPUT_COL_NUM )
+	{
+		col_data = DATA_INPUT_COL_NUM - 1;
+	}
+	if( red <= 10 && green <=10 && blue <= 10 )
+	{
+		result = 1;
+	}
+	else
+	{
+		result = 0;
+	}
+	tmp = &data_p->data[row_data * DATA_INPUT_COL_NUM + col_data];
+	if( *tmp == 0 )
+	{
+		*tmp = result;
+	}
+	return 0;
+}
+
+int input_data_recognition_to_txt( input_data_recognition_t *data_p, char * fname )
+{
+	int i, j;
+	FILE *fp;
+	char filename[50];
+	sprintf(filename, "%s.txt", fname);
+	fp = fopen(filename, "w");
+	if( fp != NULL )
+	{
+		for( i=0; i<DATA_INPUT_ROW_NUM; i++ )
+		{
+			for( j=0; j<DATA_INPUT_COL_NUM; j++ )
+			{
+				// sjis
+				// 0x81A0 : □(0)
+				// 0x81A1 : ■(1)
+				fprintf(fp, "%c", (char)0x81 );
+				if( data_p->data[ i * DATA_INPUT_COL_NUM + j ] == 0 )
+				{
+					fprintf( fp, "%c", (char)0xA0 );
+				}
+				else
+				{
+					fprintf( fp, "%c", (char)0xA1 );
+				}
+			}
+			fprintf( fp, "\n" );
+		}
+		fclose(fp);
+	}
+}
+
