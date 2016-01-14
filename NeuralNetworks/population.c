@@ -2,13 +2,20 @@
 #include "common.h"
 
 
+population_neuralnetwork_t next_popu;
+int next_popu_init_flag = 0;
+population_neuralnetwork_t toA,toB;
+int toA_toB_init_flag = 0;
+rouletteWheel_t rw;
+int rw_init_flag = 0;
+
 int init_population( population_t *popu_p, unsigned int individual_num)
 {
 	unsigned int i;
 	int ret;
 	popu_p->individual_array = NULL;
 	popu_p->individual_num = 0;
-	popu_p->individual_array = malloc( sizeof(individual_t) * individual_num );
+	popu_p->individual_array = (individual_t*)malloc( sizeof(individual_t) * individual_num );
 	if( popu_p->individual_array == NULL )
 	{
 		error_output( "init_population: malloc error." );
@@ -34,10 +41,9 @@ int init_population_neuralnetwork( population_neuralnetwork_t *popu_p, unsigned 
 {
 	unsigned int i,j;
 	int ret;
-	// input_data_recognition_t input = initInputDataRecognition("Recognition.txt"); // todo : file name changable
 	popu_p->individual_array = NULL;
 	popu_p->individual_num = 0;
-	popu_p->individual_array = malloc( sizeof(neuralnetwork_t) * individual_num );
+	popu_p->individual_array = (neuralnetwork_t*)malloc( sizeof(neuralnetwork_t) * individual_num );
 	if( popu_p->individual_array == NULL )
 	{
 		error_output( "init_population_neuralnetwork: malloc error." );
@@ -45,14 +51,14 @@ int init_population_neuralnetwork( population_neuralnetwork_t *popu_p, unsigned 
 	}
 	for( i=0; i<individual_num; i++ )
 	{
-		// todo1: muti gene. todo2: input from config file
 		popu_p->individual_array[i].hide_neural_num = HIDE_NEURAL_NUM;
-		popu_p->individual_array[i].input_num = NEURAL_INPUT_NUM;
+		popu_p->individual_array[i].input_num = NEURAL_INPUT_NUM+1;// add special input
 		popu_p->individual_array[i].output_neural_num = OUTPUT_NEURAL_NUM;
 
-		popu_p->individual_array[i].hide_neural_p = malloc( sizeof( hide_neural_t ) * HIDE_NEURAL_NUM );
-		popu_p->individual_array[i].input_data_p = malloc( sizeof( int ) * NEURAL_INPUT_NUM );
-		popu_p->individual_array[i].output_neural_p = malloc( sizeof( output_neural_t ) * OUTPUT_NEURAL_NUM );
+		popu_p->individual_array[i].hide_neural_p = (hide_neural_t*)malloc( sizeof( hide_neural_t ) * HIDE_NEURAL_NUM );
+		popu_p->individual_array[i].input_data_p = (double *)malloc( sizeof( double ) * (NEURAL_INPUT_NUM+1) );// performance update// add special input
+		popu_p->individual_array[i].input_data_p[NEURAL_INPUT_NUM] = -1; // add special input
+		popu_p->individual_array[i].output_neural_p = (output_neural_t*)malloc( sizeof( output_neural_t ) * OUTPUT_NEURAL_NUM );
 		if( popu_p->individual_array[i].hide_neural_p == NULL
 			|| popu_p->individual_array[i].input_data_p == NULL
 			|| popu_p->individual_array[i].output_neural_p == NULL )
@@ -62,15 +68,15 @@ int init_population_neuralnetwork( population_neuralnetwork_t *popu_p, unsigned 
 		}
 		for( j=0; j<HIDE_NEURAL_NUM; j++ )
 		{
-			popu_p->individual_array[i].hide_neural_p[j].input_num = NEURAL_INPUT_NUM;
+			popu_p->individual_array[i].hide_neural_p[j].input_num = NEURAL_INPUT_NUM+1;// add special input
 			popu_p->individual_array[i].hide_neural_p[j].input_data_p = popu_p->individual_array[i].input_data_p;  // todo : get out the risk of mem violation
-			popu_p->individual_array[i].hide_neural_p[j].power_p = malloc( sizeof( double ) * NEURAL_INPUT_NUM );
+			popu_p->individual_array[i].hide_neural_p[j].power_p = (double *)malloc( sizeof( double ) * (NEURAL_INPUT_NUM+1) );// performance update// add special input
 		}
 		for( j=0; j<OUTPUT_NEURAL_NUM; j++ )
 		{
-			popu_p->individual_array[i].output_neural_p[j].input_num = HIDE_NEURAL_NUM;
+			popu_p->individual_array[i].output_neural_p[j].input_num = HIDE_NEURAL_NUM+1;// performance update
 			popu_p->individual_array[i].output_neural_p[j].input_data_p = popu_p->individual_array[i].hide_neural_p;
-			popu_p->individual_array[i].output_neural_p[j].power_p = malloc( sizeof( double ) * HIDE_NEURAL_NUM );
+			popu_p->individual_array[i].output_neural_p[j].power_p = (double *)malloc( sizeof( double ) * (HIDE_NEURAL_NUM+1) );// performance update
 		}
 		for( j=0; j<HIDE_NEURAL_NUM; j++ )
 		{
@@ -88,8 +94,6 @@ int init_population_neuralnetwork( population_neuralnetwork_t *popu_p, unsigned 
 				goto ERROR_END;
 			}
 		}
-		// popu_p->individual_array[i].input_data_p[0] = input.first;  // todo : more input
-		// popu_p->individual_array[i].input_data_p[1] = input.second;
 		popu_p->individual_array[i].score = 0;
 	}
 	popu_p->individual_num = individual_num;
@@ -165,7 +169,6 @@ int free_population_neuralnetwork( population_neuralnetwork_t *popu_p )
 	return 0;
 }
 
-
 int rouletteWheelSelection(rouletteWheel_t *rw_p)
 {
 	int magic = 10000;
@@ -224,9 +227,10 @@ int crossover_sub_neuralnetwork(neuralnetwork_t *a, neuralnetwork_t *b)
 		else
 		{
 			// special input
-			tmp = b->output_neural_p[0].special_power;
-			b->output_neural_p[0].special_power = a->output_neural_p[0].special_power;
-			a->output_neural_p[0].special_power = tmp;
+			tmp = b->output_neural_p[0].power_p[b->output_neural_p[0].input_num-1];
+			b->output_neural_p[0].power_p[b->output_neural_p[0].input_num-1] =
+				a->output_neural_p[0].power_p[a->output_neural_p[0].input_num-1];
+			a->output_neural_p[0].power_p[a->output_neural_p[0].input_num-1] = tmp;
 		}
 	}
 	return 0;
@@ -239,7 +243,6 @@ int crossover( population_t *parents_p, population_t *children_p )
 	int child_index=0;
 	int ran;
 	rouletteWheel_t rw;
-
 
 	// init rouletteWheel
 	rw.num = parents_p->individual_num;
@@ -257,7 +260,6 @@ int crossover( population_t *parents_p, population_t *children_p )
 		rw.data_p[j].high = rw.data_p[j].low + parents_p->individual_array[j].score;
 	}
 
-
 	while( child_index < children_p->individual_num-1 )
 	{
 		index1 = rouletteWheelSelection(&rw);
@@ -267,7 +269,6 @@ int crossover( population_t *parents_p, population_t *children_p )
 		{
 			continue;
 		}
-
 
 		if( index1 == index2 )
 		{
@@ -325,7 +326,7 @@ int crossover( population_t *parents_p, population_t *children_p )
 	}
 	return 0;
 }
-int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_neuralnetwork_t *children_p, input_data_recognition_t* data_p, int data_num )
+int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_recognition_t* data_p, int data_num )
 {
 	int i,j;
 	int index1;
@@ -333,14 +334,22 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 	int child_index=0;
 	int ran;
 	int expect = 4; // TODO : input from file
-	rouletteWheel_t rw;
-	double max_score = parents_p->max_score * 0.5; // the magic number
-	population_neuralnetwork_t toA,toB;
-
-
+	double max_score = parents_p->max_score * 0.6; // the magic number
+	population_neuralnetwork_t *children_p = &next_popu;
+	
+	if( !next_popu_init_flag )
+	{
+		init_population_neuralnetwork( &next_popu, parents_p->individual_num );
+		next_popu_init_flag = 1;
+	}
 	// init rouletteWheel
-	rw.num = parents_p->individual_num;
-	rw.data_p = malloc( sizeof(piece_t) * rw.num );
+	if( !rw_init_flag )
+	{
+		// TODO : deal with changable individual_num
+		rw.num = parents_p->individual_num;
+		rw.data_p = (piece_t*)malloc( sizeof(piece_t) * rw.num );
+		rw_init_flag = 1;
+	}
 	rw.data_p[0].low = 0;
 	rw.data_p[0].high = parents_p->individual_array[0].score;
 	if( rw.data_p == NULL )
@@ -353,18 +362,16 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 		rw.data_p[j].low = rw.data_p[j-1].high;
 		rw.data_p[j].high = rw.data_p[j].low + parents_p->individual_array[j].score;
 	}
-
-	init_population_neuralnetwork(&toA, 1);
-	init_population_neuralnetwork(&toB, 1);
+	if( !toA_toB_init_flag )
+	{
+		init_population_neuralnetwork(&toA, 1);
+		init_population_neuralnetwork(&toB, 1);
+		toA_toB_init_flag = 1;
+	}
 	while( child_index < children_p->individual_num )
 	{
 		index1 = rouletteWheelSelection(&rw);
 		index2 = rouletteWheelSelection(&rw);
-		ran = getRand(100);
-		if( ran > CrossoverRate * 100 )
-		{
-			continue;
-		}
 		if( index1 == index2 )
 		{
 			// this guy is luky
@@ -381,7 +388,6 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 				for( i=0; i<tochromo->output_neural_num; i++ )
 				{
 					memcpy( tochromo->output_neural_p[i].power_p, fromchromo->output_neural_p[i].power_p, sizeof(double) * tochromo->output_neural_p[i].input_num );
-					tochromo->output_neural_p[i].special_power = fromchromo->output_neural_p[i].special_power;
 				}
 				tochromo->score = fromchromo->score;
 				child_index++;
@@ -401,7 +407,6 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 			for( i=0; i<toA.individual_array[0].output_neural_num; i++ )
 			{
 				memcpy( toA.individual_array[0].output_neural_p[i].power_p, fromA->output_neural_p[i].power_p, sizeof(double) * fromA->output_neural_p[i].input_num );
-				toA.individual_array[0].output_neural_p[i].special_power = fromA->output_neural_p[i].special_power;
 			}
 			for( i=0; i<toB.individual_array[0].hide_neural_num; i++ )
 			{
@@ -410,15 +415,13 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 			for( i=0; i<toB.individual_array[0].output_neural_num; i++ )
 			{
 				memcpy( toB.individual_array[0].output_neural_p[i].power_p, fromB->output_neural_p[i].power_p, sizeof(double) * fromB->output_neural_p[i].input_num );
-				toB.individual_array[0].output_neural_p[i].special_power = fromB->output_neural_p[i].special_power;
 			}
 
 			crossover_sub_neuralnetwork(&toA.individual_array[0], &toB.individual_array[0]);
 			// only one of the two can live
 			updateScore_neuralnetwork(&toA.individual_array[0], data_p, data_num);
 			updateScore_neuralnetwork(&toB.individual_array[0], data_p, data_num);
-			if( toA.individual_array[0].score > toB.individual_array[0].score && toA.individual_array[0].score >= max_score) 
-			//if( toA.individual_array[0].score > toB.individual_array[0].score ) 
+			if( toA.individual_array[0].score >= toB.individual_array[0].score && toA.individual_array[0].score >= max_score) 
 			{
 				// only good crossover can be the next generation
 				for( i=0; i<toA.individual_array[0].hide_neural_num; i++ )
@@ -428,7 +431,6 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 				for( i=0; i<toA.individual_array[0].output_neural_num; i++ )
 				{
 					memcpy( tochromo->output_neural_p[i].power_p, toA.individual_array[0].output_neural_p[i].power_p, sizeof(double) *  toA.individual_array[0].output_neural_p[i].input_num );
-					tochromo->output_neural_p[i].special_power = toA.individual_array[0].output_neural_p[i].special_power;
 				}
 				tochromo->score = toA.individual_array[0].score;
 				child_index++;
@@ -438,8 +440,7 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 					break;
 				}
 			}
-			if( toB.individual_array[0].score > toA.individual_array[0].score && toB.individual_array[0].score >= max_score) 
-			//if( toB.individual_array[0].score > toA.individual_array[0].score ) 
+			if( toB.individual_array[0].score >= toA.individual_array[0].score && toB.individual_array[0].score >= max_score) 
 			{
 				// only good crossover can be the next generation
 				for( i=0; i<toB.individual_array[0].hide_neural_num; i++ )
@@ -449,7 +450,6 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 				for( i=0; i<toB.individual_array[0].output_neural_num; i++ )
 				{
 					memcpy( tochromo->output_neural_p[i].power_p, toB.individual_array[0].output_neural_p[i].power_p, sizeof(double) *  toB.individual_array[0].output_neural_p[i].input_num );
-					tochromo->output_neural_p[i].special_power = toB.individual_array[0].output_neural_p[i].special_power;
 				}
 				tochromo->score = toB.individual_array[0].score;
 				child_index++;
@@ -462,12 +462,24 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_n
 		}
 	}
 
-	free_population_neuralnetwork(&toA);
-	free_population_neuralnetwork(&toB);
-	if( rw.data_p != NULL )
+	// after crossover, change popu_p to the next generation
+	for( i=0; i<parents_p->individual_num; i++ )
 	{
-		free( rw.data_p );
-		rw.data_p = NULL;
+		double *tmp;
+		// TODO : deal with memery violation
+		for( j=0; j<parents_p->individual_array[0].hide_neural_num; j++ )
+		{
+			tmp = next_popu.individual_array[i].hide_neural_p[j].power_p;
+			next_popu.individual_array[i].hide_neural_p[j].power_p = parents_p->individual_array[i].hide_neural_p[j].power_p;
+			parents_p->individual_array[i].hide_neural_p[j].power_p = tmp;
+		}
+		for( j=0; j<parents_p->individual_array[0].output_neural_num; j++ )
+		{
+			tmp = next_popu.individual_array[i].output_neural_p[j].power_p;
+			next_popu.individual_array[i].output_neural_p[j].power_p = parents_p->individual_array[i].output_neural_p[j].power_p;
+			parents_p->individual_array[i].output_neural_p[j].power_p = tmp;
+		}
+		parents_p->individual_array[i].score = next_popu.individual_array[i].score;
 	}
 	return 0;
 }
@@ -543,12 +555,7 @@ int updateScore_neuralnetwork( neuralnetwork_t *indi, input_data_recognition_t* 
 	{
 		// init input
 		expect = j+1;
-		for( i=0; i<sizeof(data_p->data); i++ )
-		{
-			chromo_p->input_data_p[i] = data_p[j].data[i];
-		}
-		//chromo_p->input_data_p[0] = data_p[j].first;   // todo : more input
-		//chromo_p->input_data_p[1] = data_p[j].second;
+		memcpy(chromo_p->input_data_p, &data_p[j].data, NEURAL_INPUT_NUM * sizeof(double));
 		cur_col = 0;
 		cur_row = 1;
 		for( i=0; i<chromo_p->output_neural_num; i++ )
@@ -622,31 +629,30 @@ int mutation_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_re
 {
 	int i,j,k;
 	neuralnetwork_t *chromo_p;
-	population_neuralnetwork_t next_popu;
 	unsigned int genenum = parents_p->individual_array[0].hide_neural_num * parents_p->individual_array[0].input_num
 		+ parents_p->individual_array[0].hide_neural_num * parents_p->individual_array[0].output_neural_num + 1; // todo1 : more than one output
 	double tmp;
 	int neural_index, input_index;
 
-	init_population_neuralnetwork( &next_popu, parents_p->individual_num );
+	if( !next_popu_init_flag )
+	{
+		init_population_neuralnetwork( &next_popu, parents_p->individual_num );
+		next_popu_init_flag = 1;
+	}
 	// make a clone of generation
 	for( i=0; i<parents_p->individual_num; i++ )
 	{
 		for( j=0; j<parents_p->individual_array[i].hide_neural_num; j++ )
 		{
-			for( k=0; k<parents_p->individual_array[i].input_num; k++ )
-			{
-				next_popu.individual_array[i].hide_neural_p[j].power_p[k] = parents_p->individual_array[i].hide_neural_p[j].power_p[k];
-			}
+			memcpy(next_popu.individual_array[i].hide_neural_p[j].power_p, parents_p->individual_array[i].hide_neural_p[j].power_p,
+				parents_p->individual_array[i].input_num * sizeof(double) );
 		}
 		for( j=0; j<parents_p->individual_array[i].output_neural_num; j++ )
 		{
-			for( k=0; k<parents_p->individual_array[i].hide_neural_num; k++ )
-			{
-				next_popu.individual_array[i].output_neural_p[j].power_p[k] = parents_p->individual_array[i].output_neural_p[j].power_p[k];
-			}
+			memcpy(next_popu.individual_array[i].output_neural_p[j].power_p, parents_p->individual_array[i].output_neural_p[j].power_p,
+				next_popu.individual_array[i].output_neural_p[j].input_num * sizeof(double) );
 		}
-		next_popu.individual_array[i].output_neural_p[0].special_power = parents_p->individual_array[i].output_neural_p[0].special_power; // todo : more output
+		next_popu.individual_array[i].score = parents_p->individual_array[i].score;
 	}
 	for( i=0; i<next_popu.individual_num; i++ )
 	{
@@ -679,55 +685,58 @@ int mutation_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_re
 		{
 			// the special input
 			// todo1 : more than one output
-			tmp = chromo_p->output_neural_p[0].special_power;
+			tmp = chromo_p->output_neural_p[0].power_p[chromo_p->output_neural_p[0].input_num-1];// performance update
 			tmp = mutation_neuralnetwork_sub(tmp);
-			chromo_p->output_neural_p[0].special_power = tmp;
+			chromo_p->output_neural_p[0].power_p[chromo_p->output_neural_p[0].input_num-1] = tmp;// performance update
 		}
+		updateScore_neuralnetwork(&next_popu.individual_array[i], data_p, data_num);
 	}
 	// use the next generation
 	for( i=0; i<parents_p->individual_num; i++ )
 	{
-		updateScore_neuralnetwork(&next_popu.individual_array[i], data_p, data_num);
-		if( parents_p->individual_array[i].score <= next_popu.individual_array[i].score )
+		if( parents_p->individual_array[i].score < next_popu.individual_array[i].score )
 		{
 			for( j=0; j<parents_p->individual_array[i].hide_neural_num; j++ )
 			{
-				for( k=0; k<parents_p->individual_array[i].input_num; k++ )
-				{
-					parents_p->individual_array[i].hide_neural_p[j].power_p[k] = next_popu.individual_array[i].hide_neural_p[j].power_p[k];
-				}
+				memcpy(parents_p->individual_array[i].hide_neural_p[j].power_p, next_popu.individual_array[i].hide_neural_p[j].power_p,
+					parents_p->individual_array[i].input_num * sizeof(double) );
 			}
 			for( j=0; j<parents_p->individual_array[i].output_neural_num; j++ )
 			{
-				for( k=0; k<parents_p->individual_array[i].hide_neural_num; k++ )
-				{
-					parents_p->individual_array[i].output_neural_p[j].power_p[k] = next_popu.individual_array[i].output_neural_p[j].power_p[k];
-				}
+				memcpy(parents_p->individual_array[i].output_neural_p[j].power_p, next_popu.individual_array[i].output_neural_p[j].power_p,
+					next_popu.individual_array[i].output_neural_p[j].input_num * sizeof(double) );
 			}
-			parents_p->individual_array[i].output_neural_p[0].special_power = next_popu.individual_array[i].output_neural_p[0].special_power; // todo : more output
 			parents_p->individual_array[i].score = next_popu.individual_array[i].score;
 		}
 	}
-	free_population_neuralnetwork( &next_popu );
 }
 // to gat mutation of a
 // todo : change the algorithm . This is very important!
 double mutation_neuralnetwork_sub( double a )
 {
 	int randnum = 1000; // todo : change this number. It is importent!
-	float magic = 4.0;
-	int ran;
-	ran = getRand(randnum);
-	if( ran < randnum / 2 )
+	float magic = 100;
+	int ran1,ran2;
+	ran1 = getRand(randnum);
+	if( ran1 < randnum / 2 )
 	{
-        ran *= -1;
+        ran1 = -1;
 	}
 	else
 	{
-		ran -= randnum / 2;
+		ran1 = 1;
 	}
-	ran *= magic;
-	return (a * ran / randnum);
+	ran2 = getRand(randnum);
+	if( ran2 < randnum / 2 )
+	{
+        ran2 = -1;
+	}
+	else
+	{
+		ran2 = 1;
+	}
+	magic = ran1 * (randnum + magic*ran2) / randnum;
+	return (a * magic);
 }
 
 int saveMaxScoreNeuralnetwork( population_neuralnetwork_t *pop_p , char *TODO) // TODO: get file path from config file 
@@ -738,14 +747,6 @@ int saveMaxScoreNeuralnetwork( population_neuralnetwork_t *pop_p , char *TODO) /
 	int max_index = 0;
 	neuralnetwork_t *chromo_p = NULL;
 	char namebuf[20];
-	/* for( i=0; i<pop_p->individual_num; i++ )
-	{
-		if( pop_p->individual_array[i].score > max_score )
-		{
-			max_score = pop_p->individual_array[i].score;
-			max_index = i;
-		}
-	} */ // Change to save all the population
 	for( k=0; k<pop_p->individual_num; k++ )
 	{
 		sprintf(namebuf, NEURAL_SAVING_FILE_FMT, k);
@@ -766,7 +767,7 @@ int saveMaxScoreNeuralnetwork( population_neuralnetwork_t *pop_p , char *TODO) /
 				{
 					fprintf(fp, "%.10Le\n", chromo_p->output_neural_p[i].power_p[j]);
 				}
-				fprintf(fp, "%.10Le\n", chromo_p->output_neural_p[i].special_power );
+				fprintf(fp, "%.10Le\n", chromo_p->output_neural_p[i].power_p[chromo_p->output_neural_p[i].input_num-1] );// performance update
 			}
 			fclose(fp);
 		}
@@ -792,7 +793,7 @@ int loadNeuralnetwork( neuralnetwork_t *chromo_p , char *filename)
 			{
 				fscanf(fp, "%lf\n", &chromo_p->output_neural_p[i].power_p[j]);
 			}
-			fscanf(fp, "%lf\n", &chromo_p->output_neural_p[i].special_power );
+			fscanf(fp, "%lf\n", &chromo_p->output_neural_p[i].power_p[chromo_p->output_neural_p[i].input_num-1] );// performance update
 		}
 		fclose(fp);
 	}
