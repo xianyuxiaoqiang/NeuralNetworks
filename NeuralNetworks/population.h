@@ -9,7 +9,7 @@
 #define GEN_NUM      30   // todo1: muti gene. todo2: input from config file
 #define HIDE_NEURAL_NUM  4  // todo: input from config file
 #define OUTPUT_NEURAL_NUM 1  // todo: input from config file
-#define NEURAL_INPUT_NUM 64  // todo: input from config file
+#define NEURAL_INPUT_NUM (DATA_INPUT_ROW_NUM * DATA_INPUT_COL_NUM)  // todo: input from config file
 #define NEURAL_SAVING_FILE_FMT "save%d.log" // todo: input from config file
 #define SUCCESS_SCORE  97.0
 
@@ -20,8 +20,6 @@
 
 #define MAX_GENERATION 3000000
 
-
-// #define MutationRate 0.001
 #define MutationRate 0.5
 #define CrossoverRate  0.7
 
@@ -44,6 +42,7 @@ typedef struct population_neuralnetwork_tag
 	neuralnetwork_t *individual_array;
 	unsigned int individual_num;
 	float max_score;
+	float min_score; // for debug
 }population_neuralnetwork_t;
 
 
@@ -67,7 +66,7 @@ int free_population_neuralnetwork( population_neuralnetwork_t *popu_p );
 
 
 int crossover( population_t *parents_p, population_t *children_p );
-int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, population_neuralnetwork_t *children_p, input_data_recognition_t* data_p, int data_num );
+int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_recognition_t* data_p, int data_num );
 int updateScore( individual_t *indi );
 int updateScore_neuralnetwork( neuralnetwork_t *indi, input_data_recognition_t* data_p, int data_num );
 int mutation( population_t *parents_p );
