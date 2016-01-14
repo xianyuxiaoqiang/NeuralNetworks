@@ -7,7 +7,6 @@
 
 void repain(input_data_t indata)
 {
-//	int loop = 10;
 	unsigned int i;
 	HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
 	COORD pos;
@@ -18,21 +17,13 @@ void repain(input_data_t indata)
 	pos.Y = 0;
 	if( indata.row_num > 0 )
 	{
-//		while(loop > 0)
 		{
 			SetConsoleCursorPosition(hOut, pos);
 			for( i=0; i<indata.row_num; i++ )
 			{
 				printf("%s\n", &indata.data_p[i * ( indata.col_num * 2 + 1 )]);
 			}
-//			loop--;
 			Sleep(1000);
-			{
-				// swap
-//				char tmp = indata.data_p[5];
-//				indata.data_p[5] = indata.data_p[1 * ( indata.col_num * 2 + 1 ) + 5];
-//				indata.data_p[1 * ( indata.col_num * 2 + 1 ) + 5] = tmp;
-			}
 		}
 	}
 }
@@ -60,7 +51,6 @@ int moveUp(input_data_t *indata_p, unsigned int *cur_col_p, unsigned int *cur_ro
 	memcpy( getAddress(indata_p, cur_col, cur_row), buffer2, indata_p->col_width );
 	memcpy( getAddress(indata_p, cur_col, cur_row-1), buffer1, indata_p->col_width );
 	*cur_row_p -= 1;
-	//debug_output("up");
 	return 0;
 }
 int moveDown(input_data_t *indata_p, unsigned int *cur_col_p, unsigned int *cur_row_p)
@@ -84,7 +74,6 @@ int moveDown(input_data_t *indata_p, unsigned int *cur_col_p, unsigned int *cur_
 	memcpy( getAddress(indata_p, cur_col, cur_row), buffer2, indata_p->col_width );
 	memcpy( getAddress(indata_p, cur_col, cur_row+1), buffer1, indata_p->col_width );
 	*cur_row_p += 1;
-	//debug_output("Down");
 	return 0;
 }
 int moveLeft(input_data_t *indata_p, unsigned int *cur_col_p, unsigned int *cur_row_p)
@@ -108,7 +97,6 @@ int moveLeft(input_data_t *indata_p, unsigned int *cur_col_p, unsigned int *cur_
 	memcpy( getAddress(indata_p, cur_col, cur_row), buffer2, indata_p->col_width );
 	memcpy( getAddress(indata_p, cur_col-1, cur_row), buffer1, indata_p->col_width );
 	*cur_col_p -= 1;
-	//debug_output("Left");
 	return 0;
 }
 int moveRight(input_data_t *indata_p, unsigned int *cur_col_p, unsigned int *cur_row_p)
@@ -132,7 +120,6 @@ int moveRight(input_data_t *indata_p, unsigned int *cur_col_p, unsigned int *cur
 	memcpy( getAddress(indata_p, cur_col, cur_row), buffer2, indata_p->col_width );
 	memcpy( getAddress(indata_p, cur_col+1, cur_row), buffer1, indata_p->col_width );
 	*cur_col_p += 1;
-	//debug_output("Right");
 	return 0;
 }
 
@@ -200,17 +187,7 @@ int random_population_neuralnetwork( population_neuralnetwork_t *popu_p, int use
 					ran -= randnum / 2;
 				}
 				chromo_p->output_neural_p[j].power_p[k] = magic * ran;
-			}
-			ran = getRand(randnum);
-			if( ran < randnum / 2 )
-			{
-                ran *= -1;
-			}
-			else
-			{
-				ran -= randnum / 2;
-			}
-			chromo_p->output_neural_p[j].special_power = magic * ran;
+			}// performance update
 		}
 	}
 	if( use_saved )
@@ -273,7 +250,6 @@ int active( population_t *popu_p )
 	}
 	if( max_score >= 90 )
 	{
-//		showResult( &popu_p->individual_array[max_index].chromo );
 		debug_output("near the end!");
 	}
 	mutation( popu_p );
@@ -300,33 +276,10 @@ int active_neuralnetwork( population_neuralnetwork_t *popu_p, input_data_recogni
 		}
 	}
 
-	// create the next genaration
-	if( init_population_neuralnetwork( &next_popu, popu_p->individual_num ) == 0 )
-	{
-		crossover_neuralnetwork(popu_p, &next_popu, data_p, data_num);
-		// after crossover, change popu_p to the next generation
-		for( i=0; i<popu_p->individual_num; i++ )
-		{
-			double *tmp;
-			
-			for( j=0; j<popu_p->individual_array[0].hide_neural_num; j++ )
-			{
-				tmp = next_popu.individual_array[i].hide_neural_p[j].power_p;
-				next_popu.individual_array[i].hide_neural_p[j].power_p = popu_p->individual_array[i].hide_neural_p[j].power_p;
-				popu_p->individual_array[i].hide_neural_p[j].power_p = tmp;
-			}
-			for( j=0; j<popu_p->individual_array[0].output_neural_num; j++ )
-			{
-				tmp = next_popu.individual_array[i].output_neural_p[j].power_p;
-				next_popu.individual_array[i].output_neural_p[j].power_p = popu_p->individual_array[i].output_neural_p[j].power_p;
-				popu_p->individual_array[i].output_neural_p[j].power_p = tmp;
-			}
-			popu_p->individual_array[i].score = next_popu.individual_array[i].score;
-		}
-		
-		free_population_neuralnetwork(&next_popu);
-	}
+	crossover_neuralnetwork( popu_p, data_p, data_num );
+
 	mutation_neuralnetwork( popu_p, data_p, data_num );
+	popu_p->min_score = popu_p->individual_array[0].score;
 	for( i=0; i<popu_p->individual_num; i++ )
 	{
 		if( popu_p->individual_array[i].score > max_score )
@@ -334,12 +287,12 @@ int active_neuralnetwork( population_neuralnetwork_t *popu_p, input_data_recogni
 			max_score = popu_p->individual_array[i].score;
 			max_index = i;
 		}
+		if( popu_p->individual_array[i].score < popu_p->min_score )
+		{
+			popu_p->min_score = popu_p->individual_array[i].score;
+		}
 	}
 	popu_p->max_score = max_score;
-	if( max_score > SUCCESS_SCORE )
-	{
-		//debug_output("near the end!");
-	}
 	return 0;
 }
 
@@ -437,14 +390,25 @@ void recognize_number_test(char *inputfile, neuralnetwork_t *chromo_p)
 	{
 		chromo_p->input_data_p[i] = data.data[i];
 	}
-//	chromo_p->input_data_p[0] = data.first;
-//	chromo_p->input_data_p[1] = data.second;
 	out = getOutputOfNeuralnetwork(chromo_p);
 	printf( "I guess the number is : %d\n", 
 		((out - (int)out) > 0.5 ? (int)out + 1 : (int)out)
 		);
 }
-int main( int argc, char ** argv )
+void recognize_number_test_in_png(char *inputfile, neuralnetwork_t *chromo_p)
+{
+	int i;
+	double out;
+	input_data_recognition_t data;
+	data = initInputDataRecPNG(inputfile);
+	memcpy(chromo_p->input_data_p, &data.data, sizeof(data.data) );
+	out = getOutputOfNeuralnetwork(chromo_p);
+	printf( "I guess the number is : %d\n", 
+		((out - (int)out) > 0.5 ? (int)out + 1 : (int)out)
+		);
+}
+// test numbers from 1 to 9 in static text files
+int test_static_numbers( int argc, char ** argv )
 {
 	population_neuralnetwork_t popu;
 	int i;
@@ -497,6 +461,59 @@ int main( int argc, char ** argv )
 
 	free_population_neuralnetwork(&popu);
 
+    return 0;
+}
+int main( int argc, char ** argv )
+{
+	population_neuralnetwork_t popu;
+	int i;
+	int ret;
+	input_data_recognition_t data[10];
+	char filename[100];
+	
+	init_population_neuralnetwork( &popu, 100);
+	random_population_neuralnetwork( &popu, FALSE );
+	//random_population_neuralnetwork( &popu, TRUE );
+	for( i=0; i<10; i++ )
+	{
+		sprintf(filename, "%d.png",i+1);
+		data[i] = initInputDataRecPNG(filename);
+	}
+
+    for( i=0; i<MAX_GENERATION; i++ )
+	{
+		ret = active_neuralnetwork( &popu, data, 10 );
+		if( ret == 1 )
+		{
+			printf("success at %d genaration.\n", i+1);
+			break;
+		}
+		Sleep(1);
+	}
+	if( ret == 1 )
+	{
+		for( i=0; i<popu.individual_num; i++ )
+		{
+			if( popu.individual_array[i].score >= SUCCESS_SCORE )
+			{
+				saveMaxScoreNeuralnetwork( &popu, "save.log" );
+				showResulNeural(&popu.individual_array[i]);
+				recognize_number_test_in_png("1.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("2.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("3.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("4.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("5.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("6.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("7.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("8.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("9.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("10.png", &popu.individual_array[i]);
+				recognize_number_test_in_png("Recognition.png", &popu.individual_array[i]);
+				break;
+			}
+		}
+	}
+	free_population_neuralnetwork(&popu);
     return 0;
 }
 void test_gene()
