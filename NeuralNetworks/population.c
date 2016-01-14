@@ -396,7 +396,7 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_r
 		else
 		{
 			// crossover
-			neuralnetwork_t * tochromo = &children_p->individual_array[child_index];
+			neuralnetwork_t * tochromo = NULL;
 			neuralnetwork_t * fromA = &parents_p->individual_array[index1];
 			neuralnetwork_t * fromB = &parents_p->individual_array[index2];
 			// todo : fix the risk of mem violation
@@ -423,6 +423,7 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_r
 			updateScore_neuralnetwork(&toB.individual_array[0], data_p, data_num);
 			if( toA.individual_array[0].score >= toB.individual_array[0].score && toA.individual_array[0].score >= max_score) 
 			{
+				tochromo = &children_p->individual_array[child_index];
 				// only good crossover can be the next generation
 				for( i=0; i<toA.individual_array[0].hide_neural_num; i++ )
 				{
@@ -442,6 +443,7 @@ int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_r
 			}
 			if( toB.individual_array[0].score >= toA.individual_array[0].score && toB.individual_array[0].score >= max_score) 
 			{
+				tochromo = &children_p->individual_array[child_index];
 				// only good crossover can be the next generation
 				for( i=0; i<toB.individual_array[0].hide_neural_num; i++ )
 				{
