@@ -227,6 +227,88 @@ ERROR_END:
 }
 
 #define PNG_BYTES_TO_CHECK 4
+
+// translate all the png files in a folder to the input data
+// if folder is NULL, get all these following folders' png files
+// ./1  ./2  ./3 ... ./10
+// the png files' expected value should be the folders' name.
+// e.g.   ./1/1_1.png   : expected value = 1
+//        ./10/10_9.png  : expected value = 10
+// return the current index of the data_p (input number)
+int initInputDataRecPNG_ex(char * folder, input_data_recognition_t *data_p, int start_index, int end_index)
+{
+	struct _finddata_t folder_data;
+	struct _finddata_t file_data;
+	long folder_handle;
+	long file_handle;
+	int folder_ret;
+	int file_ret;
+	int expect;
+	int cur_index = start_index;
+	if( folder == NULL )
+	{
+		folder_handle = _findfirst( "*", &folder_data );
+		folder_ret = folder_handle > 0 ? 1 : -1;
+		while( folder_ret >= 0 )
+		{
+			if( folder_data.attrib == _A_SUBDIR && atoi(folder_data.name) > 0)
+			{
+				debug_output(folder_data.name);
+				debug_output("\n");
+				// get one folder's input
+				cur_index = initInputDataRecPNG_ex(folder_data.name, data_p, cur_index, end_index);
+				if( cur_index > end_index )
+				{
+					return cur_index;
+				}
+			}
+			folder_ret = _findnext( folder_handle, &folder_data );
+		}
+		_findclose( folder_handle ); 
+	}
+	else
+	{
+		_chdir(folder);
+		file_handle = _findfirst( "*.png", &file_data );
+		file_ret = file_handle > 0 ? 1 : -1;
+		while( file_ret >= 0 )
+		{
+			if ( file_data.attrib != _A_SUBDIR )
+			{
+				debug_output(file_data.name);
+				debug_output("\n");
+				data_p[cur_index] = initInputDataRecPNG(file_data.name);
+				expect = atoi(folder);
+				if( expect <= 0 )
+				{
+					int i;
+					char buf[11];
+					for( i=0; i<strlen(file_data.name) && i<10; i++ )
+					{
+						if(file_data.name[i] > '9' || file_data.name[i] < '0')
+						{
+							break;
+						}
+						buf[i] = file_data.name[i];
+					}
+					buf[i] = 0;
+					expect = atoi(buf);
+				}
+				data_p[cur_index].expcet = expect;
+				cur_index++;
+				if( cur_index > end_index )
+				{
+					return cur_index;
+				}
+			}
+			file_ret = _findnext( file_handle, &file_data );
+		}
+		_findclose( file_handle ); 
+		_chdir("..\\");
+	}
+
+	return cur_index;
+}
 input_data_recognition_t initInputDataRecPNG(char * fname)
 {
 	input_data_recognition_t data;
