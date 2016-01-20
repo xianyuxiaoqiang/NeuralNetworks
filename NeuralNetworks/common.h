@@ -2,6 +2,8 @@
 #define MY_COMMON_H_DEF
 
 #include <windows.h>
+#include <io.h>
+#include <direct.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -13,6 +15,9 @@
 
 #define DATA_INPUT_ROW_NUM 16  // TODO: More rows of input text data
 #define DATA_INPUT_COL_NUM 16  // TODO: More columns of input text data
+
+#define MINUS_MAX -10000
+
 typedef struct input_data_tag
 {
 	unsigned int row_num;
@@ -24,6 +29,7 @@ typedef struct input_data_tag
 typedef struct input_data_recognition_tag
 {
 	double data[DATA_INPUT_ROW_NUM * DATA_INPUT_COL_NUM];  // TODO: More rows of input text data;  TODO: More columns of input text data //performance update
+	double expcet; // the expect value of the data
 } input_data_recognition_t;
 
 
@@ -31,6 +37,7 @@ void error_output( char *msg );
 input_data_t initInputData(char * fname, unsigned int col_width);
 input_data_recognition_t initInputDataRecognition(char * fname);
 input_data_recognition_t initInputDataRecPNG(char * fname);
+int initInputDataRecPNG_ex(char * folder, input_data_recognition_t *data_p, int start_index, int end_index);
 void freeInputData(input_data_t *indata_p);
 
 char *getAddress(input_data_t *indata_p, unsigned int col, unsigned int row);
