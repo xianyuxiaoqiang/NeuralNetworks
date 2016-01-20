@@ -11,7 +11,12 @@
 #define OUTPUT_NEURAL_NUM 1  // todo: input from config file
 #define NEURAL_INPUT_NUM (DATA_INPUT_ROW_NUM * DATA_INPUT_COL_NUM)  // todo: input from config file
 #define NEURAL_SAVING_FILE_FMT "save%d.log" // todo: input from config file
+#define MAX_POWER     6   // TODO : change the max power to get better performance
+#define MIN_POWER     -6   // TODO : change the max power to get better performance
 #define SUCCESS_SCORE  97.0
+#define MINI_PLUS     0.0001
+#define MINI_MINUS    -0.0001
+#define GROUP_NUMBER  10  // the number of one group. One group of neuralnetworks only deal with a special input
 
 #define MOVE_UP    (char)0x00
 #define MOVE_DOWN  (char)0x40
@@ -43,6 +48,7 @@ typedef struct population_neuralnetwork_tag
 	unsigned int individual_num;
 	float max_score;
 	float min_score; // for debug
+	int group_success_flag[GROUP_NUMBER];
 }population_neuralnetwork_t;
 
 
@@ -69,6 +75,7 @@ int crossover( population_t *parents_p, population_t *children_p );
 int crossover_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_recognition_t* data_p, int data_num );
 int updateScore( individual_t *indi );
 int updateScore_neuralnetwork( neuralnetwork_t *indi, input_data_recognition_t* data_p, int data_num );
+int tryRemember_neuralnetwork( neuralnetwork_t *indi, input_data_recognition_t* data_p, int data_num );
 int mutation( population_t *parents_p );
 int mutation_neuralnetwork( population_neuralnetwork_t *parents_p, input_data_recognition_t* data_p, int data_num );
 double mutation_neuralnetwork_sub( double a );
