@@ -58,14 +58,18 @@ double getActivation( double * xList, unsigned int xCount, double *wList, unsign
 	for( i = 0; i < xCount; i++ )
 	{
 		result += xList[i] * wList[i];
+		if( result < MINUS_MAX )
+		{
+			result = MINUS_MAX;
+		}
 	}
 
 	return result;    
 }
-
+/* return  -0.5 ~ 0.5 */
 double getOutput( const double activation )
 {
-	return sigmoid( activation , 1 );
+	return sigmoid( activation , 1 ) - 0.5;  // make sure that when activation is 0, the output is 0 too
 }
 
 double getOutputOfHideNeural( hide_neural_t *neural_p )
@@ -73,7 +77,10 @@ double getOutputOfHideNeural( hide_neural_t *neural_p )
 	double activation;
 	double output;
     // performance update
-	activation = getActivation( neural_p->input_data_p, neural_p->input_num, neural_p->power_p, neural_p->input_num );  // performance update
+	// [try start] the special power is too large, do not use it ?
+	// activation = getActivation( neural_p->input_data_p, neural_p->input_num, neural_p->power_p, neural_p->input_num );  // performance update
+	activation = getActivation( neural_p->input_data_p, neural_p->input_num-1, neural_p->power_p, neural_p->input_num-1 );
+    // [try end ] the special power is too large, do not use it ?
 	output = getOutput( activation );
 
 	return output;
@@ -93,14 +100,35 @@ double getOutputOfNeuralnetwork( neuralnetwork_t * network_p)
 
 	for( i=0; i<network_p->hide_neural_num; i++ )
 	{
-		xList[i] = getOutputOfHideNeural( &network_p->hide_neural_p[i] ); // the magic number
+		output = getOutputOfHideNeural( &network_p->hide_neural_p[i] );
+		// make sure that when activation is 0, the output is 0 too
+		if( output <= 0 )
+		{
+			output = MINUS_MAX; // reject
+		}
+		else if( output > 0 )
+		{
+			output = output * 20;    // 0 ~ 10
+		}
+		xList[i] = output;
 	}
 	xList[network_p->hide_neural_num] = -1;   // the special input
 
-	activation = getActivation( xList, network_p->hide_neural_num + 1, network_p->output_neural_p[0].power_p, network_p->hide_neural_num + 1 ); // todo1 : more than one output  // performance update
+	// [try start] the special power is too large, do not use it ?
+	// activation = getActivation( xList, network_p->hide_neural_num + 1, network_p->output_neural_p[0].power_p, network_p->hide_neural_num + 1 ); // todo1 : more than one output  // performance update
+	activation = getActivation( xList, network_p->hide_neural_num, network_p->output_neural_p[0].power_p, network_p->hide_neural_num );
+	// [try end  ] the special power is too large, do not use it ?
 	output = getOutput( activation );
 
 	free(xList);
-
-	return output * 10;  // todo : to support more output. Current is 0 ~ 10
+	// todo : to support more output. Current is 0 ~ 10
+	// make sure that when activation is 0, the output is 0 too
+	if( output <= 0 )
+	{
+		return MINUS_MAX;     // reject
+	}
+	else if( output > 0 )
+	{
+		return output * 20;    // 0 ~ 10
+	}
 }
